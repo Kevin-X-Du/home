@@ -2,7 +2,7 @@
   {
     "icon": "Blog",
     "name": "博客",
-    "link": "https://web.1922222.xyz/"
+    "link": "https://blog.1922222.xyz/"
   },
   {
     "icon": "Cloud",
@@ -22,7 +22,7 @@
   {
     "icon": "Book",
     "name": "网址集",
-    "link": "https://blog.1922222.xyz/"
+    "link": "https://web.1922222.xyz/"
   },
   {
     "icon": "Fire",
@@ -32,11 +32,6 @@
   {
     "icon": "LaptopCode",
     "name": "站点监测",
-    "link": "https://statjp.1922222.xyz/"
-  }
-    {
-    "icon": "LaptopCode",
-    "name": "test",
     "link": "https://statjp.1922222.xyz/"
   }
 ]
