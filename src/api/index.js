@@ -2,10 +2,10 @@
 import fetchJsonp from "fetch-jsonp";
 
 /**
- * Music Player
+ * ===========================
+ * 音乐播放器（原样）
+ * ===========================
  */
-
-// 获取音乐播放列表
 export const getPlayerList = async (server, type, id) => {
   const res = await fetch(
     `${import.meta.env.VITE_SONG_API}?server=${server}&type=${type}&id=${id}`
@@ -13,8 +13,7 @@ export const getPlayerList = async (server, type, id) => {
   const data = await res.json();
 
   if (data[0].url.startsWith("@")) {
-    // eslint-disable-next-line no-unused-vars
-    const [handle, jsonpCallback, jsonpCallbackFunction, url] =
+    const [_, jsonpCallback, jsonpCallbackFunction, url] =
       data[0].url.split("@").slice(1);
     const jsonpData = await fetchJsonp(url).then((res) => res.json());
     const domain = (
@@ -27,7 +26,7 @@ export const getPlayerList = async (server, type, id) => {
       artist: v.artist || v.author,
       url: domain + jsonpData.req_0.data.midurlinfo[i].purl,
       cover: v.cover || v.pic,
-      lrc: v.lrc,
+      lrc: v.lrc
     }));
   } else {
     return data.map((v) => ({
@@ -35,130 +34,151 @@ export const getPlayerList = async (server, type, id) => {
       artist: v.artist || v.author,
       url: v.url,
       cover: v.cover || v.pic,
-      lrc: v.lrc,
+      lrc: v.lrc
     }));
   }
 };
 
 /**
- * Hitokoto (One Sentence)
+ * ===========================
+ * 一言 API
+ * ===========================
  */
-
-// 获取一言数据
 export const getHitokoto = async () => {
   const res = await fetch("https://v1.hitokoto.cn");
   return await res.json();
 };
 
 /**
- * Weather
- *
- * Keep all your original Amap weather API functions.
+ * ===========================
+ * Google 翻译（中文 → 英文）
+ * 只用于天气查询
+ * ===========================
  */
+export const translateZhToEn = async (cityName) => {
+  try {
+    const url =
+      "https://translate.googleapis.com/translate_a/single?client=gtx&dt=t&sl=zh&tl=en&q=" +
+      encodeURIComponent(cityName);
 
-// 获取高德地理位置信息
-export const getAdcode = async (key) => {
-  const res = await fetch(`https://restapi.amap.com/v3/ip?key=${key}`);
-  return await res.json();
-};
+    const res = await fetch(url);
+    const data = await res.json();
+    const translated = data[0][0][0];
 
-// 获取高德地理天气信息
-export const getWeather = async (key, city) => {
-  const res = await fetch(
-    `https://restapi.amap.com/v3/weather/weatherInfo?key=${key}&city=${city}`
-  );
-  return await res.json();
-};
-
-// 获取教书先生天气 API
-// https://api.oioweb.cn/doc/weather/GetWeather
-export const getOtherWeather = async () => {
-  const res = await fetch("https://api.oioweb.cn/api/weather/GetWeather");
-  return await res.json();
+    console.log(`🌐 翻译中文 → 英文：${cityName} → ${translated}`);
+    return translated;
+  } catch (e) {
+    console.warn("⚠️ 翻译失败，使用原名英文:", cityName);
+    return cityName;
+  }
 };
 
 /**
- * ================================
- * Open-Meteo Weather Mode (New)
- * Using iplocate.io for IP -> Lat/Lon
- * ================================
+ * ===========================
+ * 获取原始 API 中文城市
+ * ===========================
  */
-
-// 使用 iplocate.io 获取经纬度
-export const getLocationByIP = async () => {
+export const getRawIPCityName = async () => {
   try {
-    const res = await fetch("https://www.iplocate.io/api/lookup/");
+    const raw = await fetch("https://api.vore.top/api/IPdata").then(
+      (r) => r.json()
+    );
+
+    if (raw.code !== 200) return null;
+
+    // 最优中文城市选择顺序
+    const city =
+      raw.adcode?.c?.replace("市", "") ||
+      raw.ipdata?.info2?.replace("市", "") ||
+      raw.ipdata?.info1;
+
+    console.log("📌 API 中文城市：", city);
+
+    return city;
+  } catch (e) {
+    console.error("❌ 无法读取中文城市:", e);
+    return null;
+  }
+};
+
+/**
+ * ===========================
+ * Open-Meteo 城市 → 经纬度
+ * ===========================
+ */
+export const getCityLocation = async (cityNameEn) => {
+  try {
+    console.log("📍 查询城市坐标（英文）:", cityNameEn);
+
+    const url =
+      "https://geocoding-api.open-meteo.com/v1/search?name=" +
+      encodeURIComponent(cityNameEn);
+
+    const res = await fetch(url);
     const data = await res.json();
 
-    if (data && data.latitude && data.longitude) {
-      return {
-        status: "success",
-        city: data.city,
-        country: data.country,
-        lat: data.latitude,
-        lon: data.longitude,
-      };
+    if (data?.results?.length > 0) {
+      console.log("📌 坐标查询成功：", data.results[0]);
+      return data.results[0];
     }
 
-    return { status: "fail", msg: "iplocate: missing coordinates" };
+    return null;
   } catch (e) {
-    return { status: "fail", msg: "iplocate: request failed" };
+    return null;
   }
 };
 
-// 获取 Open-Meteo 天气
+/**
+ * ===========================
+ * Open-Meteo 天气
+ * ===========================
+ */
 export const getOpenMeteoWeather = async (lat, lon) => {
-  const res = await fetch(
-    `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true`
-  );
+  const url =
+    `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}` +
+    "&current_weather=true";
+
+  const res = await fetch(url);
   return await res.json();
 };
 
 /**
- * Unified Weather API
+ * ===========================
+ * 🌦 主天气接口
  *
- * This function auto-selects weather source based on:
- * VITE_WEATHER_MODE = "amap" or "open-meteo"
+ * ✔ 第 1 步：用 API 中文城市
+ * ✔ 第 2 步：翻译英文供天气使用
+ * ✔ 第 3 步：查天气
+ * ✔ 第 4 步：最终城市名恢复中文（API 的）
  *
- * VITE_WEATHER_KEY is required only in "amap" mode.
+ * ===========================
  */
-
 export const getWeatherAuto = async () => {
-  const mode = import.meta.env.VITE_WEATHER_MODE;
-  const key = import.meta.env.VITE_WEATHER_KEY;
-
-  // Open-Meteo mode (no key required)
-  if (mode === "open-meteo") {
-    const loc = await getLocationByIP();
-
-    if (loc.status !== "success") {
-      return { error: true, msg: "Open-Meteo: failed to get IP location" };
-    }
-
-    const weather = await getOpenMeteoWeather(loc.lat, loc.lon);
-
-    return {
-      mode: "open-meteo",
-      city: loc.city,
-      country: loc.country,
-      ...weather.current_weather,
-    };
+  // STEP 1：API 中文城市
+  const zhCity = await getRawIPCityName();
+  if (!zhCity) {
+    return { error: true, msg: "无法读取中文城市" };
   }
 
-  // Amap mode (requires key)
-  if (mode === "amap") {
-    if (!key) {
-      return { error: true, msg: "Amap mode requires VITE_WEATHER_KEY" };
-    }
+  // STEP 2：将中文翻译成英文 → 用于天气查询
+  const enCity = await translateZhToEn(zhCity);
 
-    const ad = await getAdcode(key);
-    const weather = await getWeather(key, ad.adcode);
-
-    return {
-      mode: "amap",
-      ...weather.lives?.[0],
-    };
+  // STEP 3：查英文城市坐标
+  const geo = await getCityLocation(enCity);
+  if (!geo) {
+    console.error("❌ 坐标解析失败：", enCity);
+    return { error: true, msg: "无法解析城市坐标" };
   }
 
-  return { error: true, msg: "Unknown weather mode" };
+  // STEP 4：查天气
+  const weather = await getOpenMeteoWeather(geo.latitude, geo.longitude);
+
+  // STEP 5：最终返回中文城市（来自 API）
+  return {
+    mode: "open-meteo",
+    city: zhCity, // 🔥 最终显示 API 中文城市
+    temperature: weather.current_weather.temperature,
+    winddirection: weather.current_weather.winddirection,
+    windspeed: weather.current_weather.windspeed
+  };
 };
