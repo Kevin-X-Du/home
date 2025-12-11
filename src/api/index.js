@@ -78,15 +78,33 @@ export const getOtherWeather = async () => {
 
 /**
  * ================================
- * 以下为新增：Open-Meteo 天气模式
+ * 新增：Open-Meteo 模式（使用 iplocate 获取经纬度）
  * ================================
- * 注意：所有新增内容都不会影响你原有的任何函数，且不删除任何注释。
  */
 
-// Open-Meteo：通过 IP 获取经纬度
+/**
+ * Open-Meteo：通过 IP 获取经纬度（HTTPS）
+ * 使用 iplocate.io 获取用户地理位置
+ */
 export const getLocationByIP = async () => {
-  const res = await fetch("https://ip-api.com/json/");
-  return await res.json();
+  try {
+    const res = await fetch("https://www.iplocate.io/api/lookup/");
+    const data = await res.json();
+
+    if (data && data.latitude && data.longitude) {
+      return {
+        status: "success",
+        city: data.city,
+        country: data.country,
+        lat: data.latitude,
+        lon: data.longitude,
+      };
+    }
+
+    return { status: "fail", msg: "iplocate: 未返回经纬度数据" };
+  } catch (e) {
+    return { status: "fail", msg: "iplocate: 请求失败" };
+  }
 };
 
 // Open-Meteo：通过经纬度获取天气信息
@@ -99,6 +117,60 @@ export const getOpenMeteoWeather = async (lat, lon) => {
 
 /**
  * =========================================
+ * 新增统一入口：自动按模式获取天气（推荐使用）
+ * =========================================
+ *
+ * 根据 .env 配置决定使用：
+ * - 高德天气（amap）
+ * - Open-Meteo（open-meteo）
+ *
+ * 环境变量：
+ * VITE_WEATHER_MODE="amap" 或 "open-meteo"
+ * VITE_WEATHER_KEY   = 高德 Key（amap 模式必需）
+ */
+export const getWeatherAuto = async () => {
+  const mode = import.meta.env.VITE_WEATHER_MODE;
+  const key = import.meta.env.VITE_WEATHER_KEY;
+
+  // ---------------------------
+  // Open-Meteo 模式（无需 Key）
+  // ---------------------------
+  if (mode === "open-meteo") {
+    const loc = await getLocationByIP();
+
+    if (loc.status !== "success") {
+      return { error: true, msg: "Open-Meteo：无法获取 IP 地理位置" };
+    }
+
+    const weather = await getOpenMeteoWeather(loc.lat, loc.lon);
+
+    return {
+      mode: "open-meteo",
+      city: loc.city,
+      country: loc.country,
+      ...weather.current_weather,
+    };
+  }
+
+  // ---------------------------
+  // 高德模式（需要 key）
+  // ---------------------------
+  if (mode === "amap") {
+    if (!key) {
+      return { error: true, msg: "高德天气模式需要 VITE_WEATHER_KEY" };
+    }
+
+    const ad = await getAdcode(key);
+    const weather = await getWeather(key, ad.adcode);
+
+    return {
+      mode: "amap",
+      ...weather.lives?.[0],
+    };
+  }
+
+  return { error: true, msg: "未知天气模式，请检查 VITE_WEATHER_MODE" };
+};
  * 新增统一入口：自动按模式获取天气（推荐使用）
  * =========================================
  *
